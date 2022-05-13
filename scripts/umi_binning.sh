@@ -397,11 +397,17 @@ $GAWK \
     # Extract data from optional fields
     for (i=12; i <= NF; i++){
       # Find NM field and remove prefix (primary hit err)
+ #CS: The line belows converts the error stat (query vs ref) to just a digit, getting rid of the NM:i: header
       if($i ~ /^NM:i:/){sub("NM:i:", "", $i); perr = $i};
       # Find secondary hit field, remove prefix and split hits
+ #CS: The line below takes the secondary alignments (in this case other reads that also fell into the UMI bin) and splits them up in order to loop through
+ #    them later. Importantly each split contains read_id in position 1, map position in position 2, cigar in position 3, error stat (discrepancy between
+ #    reference and query.
       if($i ~ /^XA:Z:/){sub("XA:Z:", "", $i); split($i, shits, ";")};
     }
     # Add primary mapping to hit list
+ #CS: Below they add the primary aligned read to array err1. In the $1 is the umi bin name and in $3 is the read_id. The perr is the number of mutations
+ #    between the particular read UMI and the high confidence UMI.
     err1[$1][$3]=perr;
     # Add secondary mapping to hit list
     #Iterate over each hit
@@ -410,11 +416,14 @@ $GAWK \
       split(shits[i], tmp, ",");
       # Add hit if non-empty, not seen before and not target reverse strand
       if (tmp[1] != "" && !(tmp[1] in err1[$1]) && tmp[2] ~ "+"){
+ #CS: Below they add the secondary aligned reads to array err1. In the $1 is the umi bin name and in tmp[1] is the read_id. tmp[4] is synonymous with the
+ #    perr above in that it denotes the discrepancy between the reads umi and the high confidence umi.
         err1[$1][tmp[1]] = tmp[4];
       }
     }
     next;
   }
+#CS: Below the sam file is processed the same way for UMI2 as it was above for UMI1
   FNR==1 {
    print "[" strftime("%T") "] Reading UMI2 match file..." > "/dev/stderr";
   }
@@ -449,13 +458,16 @@ $GAWK \
         e1 = err1[umi][read];
         e2 = err2[umi][read];
         # Filter reads not matching both UMIs
+#CS: The if statment below makes sure that a particular read is seen in the same umi bin for both halves of the UMI (5 prime and 3 prime UMI)
         if (e1 != "" && e2 != ""){
-          # Filter based on mapping error 
+          # Filter based on mapping error
+#CS: The if statement below and the next couple of lines is checking for umi error of the individual read with the expected high confidence umi for that bin.
           if (e1 + e2 <= 6 && e1 <= 3 && e2 <= 3){
             # Add read to bin list or replace bin assignment if error is lower
             if (!(read in match_err)){
               match_umi[read] = umi;
               match_err[read] = e1 + e2;
+#CS: The else if statement below is important for reassigning a read to another bin if it is a better fit.
             } else if (match_err[read] > e1 + e2 ){
               match_umi[read] = umi;
               match_err[read] = e1 + e2;
@@ -471,6 +483,7 @@ $GAWK \
       sub("_rc", "", UM)
       # Read orientation stats
       ROC=match(match_umi[s], /_rc/)
+#CS: The presence of "_rc" in the umi counts it as a positive strand. If the "_rc" pattern is not present, it gets counted as a negative strand read.
       if (ROC != 0){
         umi_ro_plus[UM]++
         roc[s]="+"
@@ -486,6 +499,9 @@ $GAWK \
     for (u in umi_ro_plus){
       # Check read orientation fraction
       if (umi_ro_plus[u] > 1 && umi_ro_neg[u] > 1){
+#CS: The couple of lines below check for read orientation in the positive and negative strand. If either orientation falls below the user desired 
+#    threshold (designated as RO_FRAC), the read orientation is normalized between positive and negative strands (I think they subset reads from 
+#    one of the orientations.
         if (umi_ro_plus[u]/(umi_ro_neg[u]+umi_ro_plus[u]) < RO_FRAC ){
           rof_check[u]="rof_subset"
           rof_sub_neg_n[u] = umi_ro_plus[u]*(1/RO_FRAC-1)
@@ -509,6 +525,8 @@ $GAWK \
       UMI_NAME=match_umi[s]
       sub("_rc", "", UMI_NAME)
       if(roc[s] == "+"){
+ #CS: I am not entirely clear on the -- > notation here as I could not find that much information about it. Will look more into this. Essentially I think
+ #    the if statement is saying if rof_sub_pos_n[UMI_NAME] is equal to 0 then proceed. Not sure why they don't just use "==" instead of -- >.
         if(rof_sub_pos_n[UMI_NAME]-- > 0){
           ror_filt[s]=UMI_NAME
         }
@@ -534,6 +552,7 @@ $GAWK \
     for (u in umi_n){
       UME_MEAN[u] = umi_me_sum[u]/umi_n[u]
       UME_SD[u] = sqrt((umi_me_sq[u]-umi_me_sum[u]^2/umi_n[u])/umi_n[u])
+#CS: UME_MATCH_ERROR and UME_MATCH_ERROR_SD are user defined cutoffs
       if (UME_MEAN[u] > UME_MATCH_ERROR || UME_SD[u] > UME_MATCH_ERROR_SD){
         ume_check[u] = "ume_fail"
       } else {
@@ -544,6 +563,10 @@ $GAWK \
     print "[" strftime("%T") "] UMI bin/cluster size ratio filtering..." > "/dev/stderr";
     for (u in umi_n){
       CLUSTER_SIZE=u
+ #CS: In this section, as a QC metric umi cluster size is compared against it's bin size. The cluster size is the number of high quality UMI sequences
+ #    while the bin size is the number of reads assigned to a bin based on these high quality UMI sequences. I'm guessing the rationale is, that
+ #    UMIs based on very few high quality sequences that then match to a lot more reads are pulling in too much noise and may lead to accuracy problems
+ #    during consensus generation. This metric is discussed in issue #42.
       sub(".*;", "", CLUSTER_SIZE)
       bcr[u]=umi_n_raw[u]/CLUSTER_SIZE
       if (bcr[u] > BIN_CLUSTER_RATIO){
@@ -567,6 +590,8 @@ $GAWK \
 	
     print "[" strftime("%T") "] Print UMI matches..." > "/dev/stderr"; 
     for (s in ror_filt){
+#CS: The code below outputs read & umi combinations that are below the UMI error cutoff, passed the read orientation assessment (a per UMI bin assessment),
+#    and the requirements for a certain number of reads per cluster.
       UMI_NAME=ror_filt[s]
       if( \
           ume_check[UMI_NAME] == "ume_ok" && \
