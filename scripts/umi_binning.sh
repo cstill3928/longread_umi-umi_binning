@@ -378,6 +378,11 @@ $BWA aln $BINNING_DIR/reads_tf_umi2.fa $BINNING_DIR/umi_ref_b2.fa \
 $BWA samse -n 10000000 $BINNING_DIR/reads_tf_umi2.fa $BINNING_DIR/umi2_map.sai\
   $BINNING_DIR/umi_ref_b2.fa | $SAMTOOLS view -F 20 - > $BINNING_DIR/umi2_map.sam
 
+#CS: The gawk command below takes our two umi_map.sam files and extract reads mapped to umi bins. Following the read extraction, reads are filtered 
+#    based on error in their umi sequence with the expected umi sequence. UMI bins generated are then filtered based on strand orientation of it's reads
+#    , bin size to cluster size for a specific UMI, and UMI match error statistics in the bin such as mean and standard deviation. The return of this 
+#    command is a text file with the following columns: UMI bin, read_id, UMI match error.
+
 # UMI binning and filtering
 
 $GAWK \
@@ -526,7 +531,7 @@ $GAWK \
       sub("_rc", "", UMI_NAME)
       if(roc[s] == "+"){
  #CS: I am not entirely clear on the -- > notation here as I could not find that much information about it. Will look more into this. Essentially I think
- #    the if statement is saying if rof_sub_pos_n[UMI_NAME] is equal to 0 then proceed. Not sure why they don't just use "==" instead of -- >.
+ #    the if statement is saying if rof_sub_pos_n[UMI_NAME] is equal to 0 then proceed. Not sure why they do not just use "==" instead of -- >.
         if(rof_sub_pos_n[UMI_NAME]-- > 0){
           ror_filt[s]=UMI_NAME
         }
@@ -563,8 +568,8 @@ $GAWK \
     print "[" strftime("%T") "] UMI bin/cluster size ratio filtering..." > "/dev/stderr";
     for (u in umi_n){
       CLUSTER_SIZE=u
- #CS: In this section, as a QC metric umi cluster size is compared against it's bin size. The cluster size is the number of high quality UMI sequences
- #    while the bin size is the number of reads assigned to a bin based on these high quality UMI sequences. I'm guessing the rationale is, that
+ #CS: In this section, as a QC metric umi cluster size is compared against its bin size. The cluster size is the number of high quality UMI sequences
+ #    while the bin size is the number of reads assigned to a bin based on these high quality UMI sequences. I am guessing the rationale is, that
  #    UMIs based on very few high quality sequences that then match to a lot more reads are pulling in too much noise and may lead to accuracy problems
  #    during consensus generation. This metric is discussed in issue #42.
       sub(".*;", "", CLUSTER_SIZE)
@@ -591,7 +596,7 @@ $GAWK \
     print "[" strftime("%T") "] Print UMI matches..." > "/dev/stderr"; 
     for (s in ror_filt){
 #CS: The code below outputs read & umi combinations that are below the UMI error cutoff, passed the read orientation assessment (a per UMI bin assessment),
-#    and the requirements for a certain number of reads per cluster.
+#    and the requirements for a certain number of reads per cluster. Exact output of the columns are: UMI bin, read_id, and UMI matching errors.
       UMI_NAME=ror_filt[s]
       if( \
           ume_check[UMI_NAME] == "ume_ok" && \
