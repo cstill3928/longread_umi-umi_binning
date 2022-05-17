@@ -378,10 +378,8 @@ $BWA aln $BINNING_DIR/reads_tf_umi2.fa $BINNING_DIR/umi_ref_b2.fa \
 $BWA samse -n 10000000 $BINNING_DIR/reads_tf_umi2.fa $BINNING_DIR/umi2_map.sai\
   $BINNING_DIR/umi_ref_b2.fa | $SAMTOOLS view -F 20 - > $BINNING_DIR/umi2_map.sam
 
-#CS: The gawk command below takes our two umi_map.sam files and extract reads mapped to umi bins. Following the read extraction, reads are filtered 
-#    based on error in their umi sequence with the expected umi sequence. UMI bins generated are then filtered based on strand orientation of it's reads
-#    , bin size to cluster size for a specific UMI, and UMI match error statistics in the bin such as mean and standard deviation. The return of this 
-#    command is a text file with the following columns: UMI bin, read_id, UMI match error.
+#CS: The gawk command below takes our two umi_map.sam files and uses them to put reads into groups. QC is done to determine which groups to continue with
+#    and these groups are used to build high accuracy consensus sequences.
 
 # UMI binning and filtering
 
