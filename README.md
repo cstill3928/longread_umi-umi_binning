@@ -38,8 +38,15 @@ SM Karst, RM Ziels, RH Kirkegaard, EA Sørensen, D. McDonald, Q Zhu, R Knight, &
    ...
    conda deactivate
    ```
+6. Install pandas within the longread_umi environment
+
+   ```
+   conda activate longread_umi
+   pip install pandas
+   conda deactivate
+   ```
    
-6. The longread_umi installation directory can be found by typing. 
+7. The longread_umi installation directory can be found by typing. 
 
    ```
    conda activate longread_umi
