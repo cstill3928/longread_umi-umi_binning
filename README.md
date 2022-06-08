@@ -255,6 +255,13 @@ Bacterial rRNA operon (~4300 bp) | ZymoBIOMICS Microbial Community DNA Standard 
 - [ONT R10 Zymomock rRNA - generate UMI consensus sequences and validate data](https://htmlpreview.github.io/?https://github.com/SorenKarst/longread_umi/blob/master/docs/ONT_R10_ZYMO_rRNA.html)  
 - [PB UMI Zymomock rRNA - generate UMI consensus sequences and validate data](https://htmlpreview.github.io/?https://github.com/SorenKarst/longread_umi/blob/master/docs/PB_UMI_ZYMO_rRNA.html)  
 
+## Steps to process reads to umi bins in preparation for racon consensus
+
+You can use any of the following steps to perform initial fastq to read bin conversion in preparation for racon consensus
+
+1. Just use ```umi_binning``` for the original binning process
+2. Use ```umi_binning_python``` to carry out the binning process but instead of a gawk command, we substitute python for generating and QCing UMI bins. This is preferable for large amounts of data.
+3. Use ```umi_binning_part1``` to run the umi_binning.sh script until the read_binning (generates SAM files with individual read umi's mapped to high quality reference umi's). Then use ```read_binning_gawk``` or ```crispy_binning``` to generate and filter read bins. Then use ```umi_binning_part2``` to run the umi_binning.sh script after the read binning (use the umi_bin_map.txt file from read binning) to create fastq files with multiple reads pertaining to the same bin.
 
 
 ## Usage
