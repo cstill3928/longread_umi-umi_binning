@@ -76,7 +76,7 @@ $CONDA_PREFIX/bin/pip install \
 # Download longread-UMI from git
 git clone \
   --branch "$BRANCH" \
-  https://github.com/SorenKarst/longread-UMI-pipeline.git \
+  https://github.com/cstill3928/longread_umi-umi_binning.git \
   $CONDA_PREFIX/longread_umi
 
 # Modify adapters.py
